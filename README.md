@@ -46,6 +46,9 @@ Follow the steps below to set up and run the data pipeline:
 
 ### Steps
 
+Before initializing terraform make sure to have the AWS environment setup through the ```template.yml``` file, which will setup a VSCode in an EC2 instance.
+
+
 1. **Initialize Terraform**
 
    ```bash
@@ -55,19 +58,19 @@ Follow the steps below to set up and run the data pipeline:
 
 2. **Apply Terraform Configurations**
 
-   - **Extract Data**
+   **Extract Data**
 
      ```bash
      terraform apply -target=module.extract_job
      ```
 
-   - **Transform Data**
+   **Transform Data**
 
      ```bash
      terraform apply -target=module.transform_job
      ```
 
-   - **Set Up Serving Layer**
+   **Set Up Serving Layer**
 
      ```bash
      terraform apply -target=module.serving
@@ -87,8 +90,9 @@ Follow the steps below to set up and run the data pipeline:
 
    Trigger the following DAGs in Airflow to execute the data pipeline:
 
-   - **Data Extraction and Transformation DAG**
-   - **Data Quality and Serving DAG**
+   **deftunes_api_pipeline_dag**
+
+   **deftunes_songs_pipeline_dag**
 
 ## Technologies Used
 
