@@ -6,13 +6,7 @@ The **DeFtunes Music Purchase Data Pipeline** is an end-to-end solution designed
 
 ## Architecture
 
-The pipeline architecture follows a layered approach to efficiently process and model data:
-
 ![Data Pipeline](./images/data_pipeline.png)
-
-1. **Landing Zone (Bronze)**: Raw data ingestion layer where data is collected in its original form.
-2. **Transformation Zone (Silver)**: Data enrichment and transformation layer where data is cleaned and structured.
-3. **Serving Zone (Gold)**: Modeled data layer using a star schema for efficient querying and analytics.
 
 ### Star Schema Data Model
 
