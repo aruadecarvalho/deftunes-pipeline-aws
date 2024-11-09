@@ -1,0 +1,1222 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Description: Project prefix for naming resources
+    Default: de-c4w4a2
+  AWSRegion:
+    Type: String
+    Description: Default AWS Region
+    Default: us-east-1
+  VPCCIDR:
+    Type: String
+    Description: CIDR of VPC. IPv4 address range in CIDR notation.
+    Default: 10.0.0.0/16
+  PublicSubnetCIDR:
+    Type: String
+    Description: CIDR of a public subnet. IPv4 address range in CIDR notation.
+    Default: 10.0.1.0/24
+  PrivateSubnetACIDR:
+    Type: String
+    Description: CIDR of a private subnet A. IPv4 address range in CIDR notation.
+    Default: 10.0.3.0/24
+  PrivateSubnetBCIDR:
+    Type: String
+    Description: CIDR of a private subnet B. IPv4 address range in CIDR notation.
+    Default: 10.0.4.0/24
+  PublicBucketName:
+    Type: String
+    Description: Public bucket name for assets.
+    Default: dlai-data-engineering
+  PublickBucketDBTDockerfile:
+    Type: String
+    Description: Public bucket key for sql file.
+    Default: labs/cfn_dependencies/c4w4a2/docker/dbt/Dockerfile
+  PublickBucketDBTProjectFolder:
+    Type: String
+    Description: Public bucket key for sql file.
+    Default: labs/cfn_dependencies/c4w4a2/docker/dbt/dbt_project
+  PublickBucketAirflowFolder:
+    Type: String
+    Description: Public bucket key for sql file.
+    Default: labs/cfn_dependencies/c4w4a2/docker/airflow
+  PublickBucketAirflowDags:
+    Type: String
+    Description: Public bucket key for sql file.
+    Default: labs/cfn_dependencies/c4w4a2/dags
+  PublicBucketPostgresDDLObjectKey:
+    Type: String
+    Description: Public bucket key for sql file.
+    Default: labs/cfn_dependencies/c4w4a2/songs_ddl.sql
+  PublicBucketLayerKey:
+    Type: String
+    Description: Public bucket key for dependencies file.
+    Default: labs/cfn_dependencies/c4w4a2/lambda_layer_dependencies_p312.zip
+  PublicBucketPostgresLayerKey:
+    Type: String
+    Description: Public bucket key for dependencies file.
+    Default: labs/cfn_dependencies/c4w4a2/lambda_layer_dependencies_p38.zip
+  PublicBucketPostgresLambdaKey:
+    Type: String
+    Description: Public bucket key for postgres load zip file.
+    Default: labs/cfn_dependencies/c4w4a2/postgres_load.py.zip
+  PublicVsCodeDockerRepo:
+    Description: ECR repo with the vscode docker image
+    Type: String
+    Default: public.ecr.aws/deeplearning-ai/dlai-de-code-server:latest
+  PublicBucketVSCodeServiceKey:
+    Type: String
+    Description: Public bucket key for postgres load zip file.
+    Default: labs/cfn_dependencies/c4w4a2/docker_vscode_service.service
+  PublicBucketAPIServiceKey:
+    Type: String
+    Description: Public bucket key for postgres load zip file.
+    Default: labs/cfn_dependencies/c4w4a2/docker_api_service.service
+  PublicBucketSupersetServiceKey:
+    Type: String
+    Description: Public bucket key for postgres load zip file.
+    Default: labs/cfn_dependencies/c4w4a2/docker_superset_service.service
+  PublicBucketLambdaKey:
+    Type: String
+    Description: Public bucket key for lab clone lambda zip file.
+    Default: labs/cfn_dependencies/c4w4a2/policy_clone.zip
+  PublicBucketPolicyPath:
+    Type: String
+    Description: Public bucket key for lab policy file.
+    Default: labs/cfn_dependencies/c4w4a2/lab.policy
+  PublicBucketLabContentKey:
+    Type: String
+    Description: Public bucket key for lab_content folder.
+    Default: labs/c4w4a2-343017
+  PostgresLambdaRuntime:
+    Type: String
+    Description: Postgres Lambda function Runtime
+    Default: python3.8
+  Timeout:
+    Type: Number
+    Description: Lambda function Timeout
+    Default: 900
+  VSCodeRoleName:
+    Type: String
+    Description: Role name for the VSCode Instance
+    Default: VSCodeInstanceRole
+  LatestAmiId:
+    Description: The latest Amazon Linux 2023 AMI from the Parameter Store
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+  VSCodeInstanceType:
+    Description: The EC2 instance type
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.medium
+      - t3.large
+  InstanceType:
+    Description: The EC2 instance type
+    Type: String
+    Default: t3.xlarge
+    AllowedValues:
+      - t3.xlarge
+  # AirflowInstanceType:
+  #   Description: The EC2 instance type
+  #   Type: String
+  #   Default: t3.large
+  #   AllowedValues:
+  #     - t3.large
+  PostgresMasterUsername:
+    Type: String
+    Description: A user name for RDS database instance.
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    Default: postgresuser
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  PostgresMasterUserPassword:
+    Type: String
+    Description: >-
+      A user password for RDS database instance default password Awsadmin123. (8
+      characters minimum, 41 characters maximum.)
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: "[a-zA-Z0-9]*"
+    Default: adminpwrd
+    ConstraintDescription: must contain only alphanumeric characters.
+  PostgresAllocatedStorage:
+    Default: "20"
+    Description: The size of the database (GiB)
+    Type: Number
+    MinValue: "20"
+    MaxValue: "65536"
+    ConstraintDescription: must be between 20 and 65536 GiB.
+  PostgresDBName:
+    Type: String
+    Default: "postgres"
+  KeyName:
+    Type: String
+    Default: KeyName
+  ProducerDockerRepo:
+    Description: ECR repo with the producer docker image
+    Type: String
+    Default: public.ecr.aws/deeplearning-ai/dlai-de-c4w4a2-api:latest
+  RedshiftDatabaseName:
+    Description: The name of the database to be created
+    Type: String
+    Default: dev
+    AllowedPattern: "([a-z]|[0-9])+"
+  RedshiftMasterUsername:
+    Description:
+      The user name that is associated with the master user account for
+      the cluster that is being created
+    Type: String
+    Default: defaultuser
+    AllowedPattern: "([a-z])([a-z]|[0-9])*"
+  RedshiftMasterUserPassword:
+    Description:
+      The password that is associated with the master user account for
+      the cluster that is being created.
+    Type: String
+    NoEcho: "true"
+    Default: Defaultuserpwrd1234+
+  RedshiftPortNumber:
+    Description: The port number on which the cluster accepts incoming connections.
+    Type: Number
+    Default: 5439
+  APIPort:
+    Type: Number
+    Description: API port
+    Default: 8000
+  AirflowPort:
+    Type: Number
+    Description: Airflow port
+    Default: 8080
+  SupersetPort:
+    Type: Number
+    Description: Airflow port
+    Default: 8088
+  VsCodePort:
+    Type: Number
+    Description: VS Code port
+    Default: 8443
+  Runtime:
+    Type: String
+    Description: Lambda function Runtime
+    Default: python3.12
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Application
+          Value: !Ref AWS::StackId
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-igw
+  InternetGatewayAttachment:
+    DependsOn:
+      - InternetGateway
+      - VPC
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  PublicSubnet:
+    DependsOn: VPC
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - "0"
+        - !GetAZs ""
+      CidrBlock: !Ref PublicSubnetCIDR
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-public-subnet
+  PrivateSubnetA:
+    DependsOn: VPC
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - "0"
+        - !GetAZs ""
+      CidrBlock: !Ref PrivateSubnetACIDR
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-private-subnet-a
+  PrivateSubnetB:
+    DependsOn: VPC
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - "1"
+        - !GetAZs ""
+      CidrBlock: !Ref PrivateSubnetBCIDR
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-private-subnet-b
+  InternetGatewayRoute:
+    DependsOn:
+      - InternetGatewayAttachment
+      - PublicRouteTable
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+  PublicRouteTable:
+    DependsOn: VPC
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-public-routetable
+      VpcId: !Ref VPC
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+  NatGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+  PrivateRouteTable:
+    DependsOn: VPC
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-private-routetable
+      VpcId: !Ref VPC
+  NATGateway:
+    DependsOn:
+      - NATGatewayEIPA
+      - PublicSubnet
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIPA.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-natgw
+  NATGatewayEIPA:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  DefaultVPCSecurityGroup:
+    DependsOn: VPC
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Default Security Group for the VPC.
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectPrefix}-sg
+  DefaultVPCSecurityGroupSelfRefIngress:
+    DependsOn: DefaultVPCSecurityGroup
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      SourceSecurityGroupId: !Ref DefaultVPCSecurityGroup
+      IpProtocol: "-1"
+      GroupId: !Ref DefaultVPCSecurityGroup
+  DBIngressRule:
+    DependsOn: DefaultVPCSecurityGroup
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      FromPort: "3306"
+      ToPort: "3306"
+      GroupId: !Ref DefaultVPCSecurityGroup
+      IpProtocol: tcp
+      CidrIp: 0.0.0.0/0
+
+  PostgreSQLIngressRule:
+    DependsOn: DefaultVPCSecurityGroup
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      FromPort: "5432"
+      ToPort: "5432"
+      GroupId: !Ref DefaultVPCSecurityGroup
+      IpProtocol: tcp
+      CidrIp: 0.0.0.0/0
+  PostgresSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: Subnet available for the DB Instance
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+    DependsOn:
+      - PrivateSubnetA
+      - PrivateSubnetB
+
+  PostgresDB:
+    DependsOn:
+      - DefaultVPCSecurityGroup
+      - PostgresSubnetGroup
+      - PrivateSubnetA
+    Type: "AWS::RDS::DBInstance"
+    DeletionPolicy: Delete
+    Properties:
+      DBInstanceIdentifier: !Sub "${ProjectPrefix}-rds"
+      DBName: dev
+      DBInstanceClass: db.t3.small
+      AllocatedStorage: !Ref PostgresAllocatedStorage
+      AvailabilityZone: !GetAtt
+        - PrivateSubnetA
+        - AvailabilityZone
+      DBSubnetGroupName: !Ref PostgresSubnetGroup
+      Engine: postgres
+      EngineVersion: 15.5
+      MasterUsername: !Ref PostgresMasterUsername
+      MasterUserPassword: !Ref PostgresMasterUserPassword
+      MultiAZ: false
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 0
+      VPCSecurityGroups:
+        - !Ref DefaultVPCSecurityGroup
+      AssociatedRoles:
+        - FeatureName: s3Import
+          RoleArn: !GetAtt LoadIAMRole.Arn
+
+  PostgresLambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleArchitectures:
+        - arm64
+      CompatibleRuntimes:
+        - !Ref PostgresLambdaRuntime
+      Content:
+        S3Bucket: !Ref PublicBucketName
+        S3Key: !Ref PublicBucketPostgresLayerKey
+      Description: Lambda layer with dependencies to insert data into postgres DBs
+      LayerName: !Sub ${ProjectPrefix}-lambda-layer-postgres
+
+  PostgresLoadFunction:
+    DependsOn:
+      - PostgresLambdaLayer
+      - PostgresDB
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Environment:
+        Variables:
+          DBHOST: !GetAtt
+            - PostgresDB
+            - Endpoint.Address
+          DBPORT: !GetAtt
+            - PostgresDB
+            - Endpoint.Port
+          DBNAME: !Ref PostgresDBName
+          DBUSER: !Ref PostgresMasterUsername
+          DBPASSWORD: !Ref PostgresMasterUserPassword
+          BUCKET_NAME: !Ref PublicBucketName
+          OBJECT_KEY: !Ref PublicBucketPostgresDDLObjectKey
+          IAM_ROLE_ARN: !GetAtt LoadIAMRole.Arn
+      Code:
+        S3Bucket: !Ref PublicBucketName
+        S3Key: !Ref PublicBucketPostgresLambdaKey
+      FunctionName: !Sub "${ProjectPrefix}-postgres-lambda-function"
+      Handler: postgres_load.lambda_handler
+      Layers:
+        - !Ref PostgresLambdaLayer
+      Runtime: !Ref PostgresLambdaRuntime
+      Role: !GetAtt FunctionRole.Arn
+      Timeout: !Ref Timeout
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref DefaultVPCSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnetA
+
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+  CFPostgresLambdaExecution:
+    DependsOn:
+      - PostgresLoadFunction
+    Type: "Custom::CFPostgresLambdaExecution"
+    Properties:
+      ServiceToken: !GetAtt PostgresLoadFunction.Arn
+      DeletionPolicy: Delete
+
+  IacS3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${ProjectPrefix}-${AWS::AccountId}-${AWS::Region}-terraform-state"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  DataLakeS3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${ProjectPrefix}-${AWS::AccountId}-${AWS::Region}-data-lake"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  LoadIAMRole:
+    Type: "AWS::IAM::Role"
+    DependsOn:
+      - FunctionRole
+      - DataLakeS3Bucket
+    Properties:
+      RoleName: !Sub ${ProjectPrefix}-load-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "redshift.amazonaws.com"
+                - "rds.amazonaws.com"
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt FunctionRole.Arn
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: Spectrum-Glue-Access-Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListMultipartUploadParts
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                Resource:
+                  - !Sub "arn:aws:s3:::${PublicBucketName}"
+                  - !Sub "arn:aws:s3:::${PublicBucketName}/*"
+                  - !Sub "arn:aws:s3:::${ProjectPrefix}-${AWS::AccountId}-${AWS::Region}-data-lake"
+                  - !Sub "arn:aws:s3:::${ProjectPrefix}-${AWS::AccountId}-${AWS::Region}-data-lake/*"
+              - Effect: Allow
+                Action:
+                  - glue:CreateDatabase
+                  - glue:DeleteDatabase
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:UpdateDatabase
+                  - glue:CreateTable
+                  - glue:DeleteTable
+                  - glue:BatchDeleteTable
+                  - glue:UpdateTable
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:BatchCreatePartition
+                  - glue:CreatePartition
+                  - glue:DeletePartition
+                  - glue:BatchDeletePartition
+                  - glue:UpdatePartition
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                  - glue:BatchGetPartition
+                  - logs:*
+                Resource:
+                  - "*"
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 Security Group
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-ec2-sg"
+  EC2SecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  EC2SecurityGroupIngressAPI:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: !Ref APIPort
+      ToPort: !Ref APIPort
+  EC2SecurityGroupIngressAirflow:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: !Ref AirflowPort
+      ToPort: !Ref AirflowPort
+  EC2SecurityGroupIngressHTTPS:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+  EC2SecurityGroupIngressRedshift:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: 5439
+      ToPort: 5439
+  EC2SecurityGroupIngressSuperset:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: !Ref SupersetPort
+      ToPort: !Ref SupersetPort
+  EC2SecurityGroupIngressVsCode:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: !Ref VsCodePort
+      ToPort: !Ref VsCodePort
+  EC2SecurityGroupIngressJupyter:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EC2SecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: 8888
+      ToPort: 8888
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Sub "${ProjectPrefix}-ec2-keypair"
+
+  EC2IAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${ProjectPrefix}-ec2-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonAthenaFullAccess
+        - arn:aws:iam::aws:policy/AmazonKinesisFullAccess
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/EC2InstanceProfileForImageBuilderECRContainerBuilds
+      Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: "Statement1"
+                Effect: "Allow"
+                Action:
+                  - "s3:*"
+                Resource:
+                  - "arn:aws:s3:::de-c4w4*"
+              - Sid: "S3AccessDLAIBucket"
+                Action:
+                  - "s3:List*"
+                  - "s3:Get*"
+                Effect: "Allow"
+                Resource:
+                  - "arn:aws:s3:::dlai-data-engineering"
+                  - "arn:aws:s3:::dlai-data-engineering/*"
+              - Sid: "IAMAccess"
+                Action:
+                  - "iam:Pass*"
+                  - "iam:Get*"
+                  - "iam:List*"
+                Effect: "Allow"
+                Resource:
+                  - "*"
+              - Sid: "AssumeGlueRole"
+                Effect: "Allow"
+                Action: "sts:AssumeRole"
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/*${ProjectPrefix}glue-role"
+
+  EC2InstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Roles:
+        - !Ref EC2IAMRole
+
+  RedshiftCluster:
+    Type: AWS::Redshift::Cluster
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      ClusterIdentifier: !Sub "${ProjectPrefix}-redshift-cluster"
+      ClusterType: single-node
+      NumberOfNodes: 1
+      NodeType: dc2.large
+      DBName:
+        Ref: RedshiftDatabaseName
+      MasterUsername:
+        Ref: RedshiftMasterUsername
+      MasterUserPassword:
+        Ref: RedshiftMasterUserPassword
+      ClusterParameterGroupName:
+        Ref: RedshiftClusterParameterGroup
+      VpcSecurityGroupIds:
+        - Ref: RedshiftSecurityGroup
+      ClusterSubnetGroupName:
+        Ref: RedshiftClusterSubnetGroup
+      PubliclyAccessible: "true"
+      Port:
+        Ref: RedshiftPortNumber
+      IamRoles:
+        - !GetAtt LoadIAMRole.Arn
+  RedshiftClusterParameterGroup:
+    Type: AWS::Redshift::ClusterParameterGroup
+    Properties:
+      Description: Cluster parameter group
+      ParameterGroupFamily: redshift-1.0
+      Parameters:
+        - ParameterName: enable_user_activity_logging
+          ParameterValue: "true"
+  RedshiftClusterSubnetGroup:
+    Type: AWS::Redshift::ClusterSubnetGroup
+    Properties:
+      Description: Cluster subnet group
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+    DependsOn:
+      - PrivateSubnetA
+      - PrivateSubnetB
+  RedshiftSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort:
+            Ref: RedshiftPortNumber
+          ToPort:
+            Ref: RedshiftPortNumber
+          IpProtocol: tcp
+      VpcId:
+        Ref: VPC
+  DataArchitectureInstance:
+    DependsOn:
+      - EC2InstanceProfile
+      - DBTBucket
+      - DagsBucket
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref EC2KeyPair # KeyName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: "/dev/xvda"
+          Ebs:
+            VolumeSize: "30"
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !Ref EC2SecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-da-instance"
+      UserData:
+        {
+          "Fn::Base64":
+            {
+              "Fn::Join":
+                [
+                  "",
+                  [
+                    "#!/bin/bash\n",
+                    "set -ex\n",
+                    "echo ----- Configuring API ----- \n",
+                    "export PRODUCER_DOCKER_REPO=",
+                    { "Ref": "ProducerDockerRepo" },
+                    "\n",
+                    "echo $PRODUCER_DOCKER_REPO\n",
+                    "sudo yum update -y\n",
+                    "sudo yum install docker git -y\n",
+                    "sudo service docker start\n",
+                    "echo ------ Configuring Airflow ----- \n",
+                    "export de_project=",
+                    { "Ref": "ProjectPrefix" },
+                    "\n",
+                    "export AWS_DEFAULT_REGION=",
+                    { "Ref": "AWSRegion" },
+                    "\n",
+                    "export redshift_host=$(aws redshift describe-clusters --cluster-identifier $de_project-redshift-cluster --query \"Clusters[0].Endpoint.Address\" --output text) \n",
+                    "wget https://s3.amazonaws.com/mountpoint-s3-release/latest/x86_64/mount-s3.rpm\n",
+                    "sudo yum install -y ./mount-s3.rpm\n",
+                    "mkdir -p /docker_dbt/dbt_project\n",
+                    "cd /docker_dbt\n",
+                    "sudo aws s3 cp s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublickBucketDBTDockerfile" },
+                    " ./Dockerfile \n",
+                    "sudo chmod 777 -R ./dbt_project\n",
+                    "sudo mount-s3 --dir-mode 0766 --file-mode 0766 --allow-overwrite --allow-delete --allow-other --prefix dbt_project/ ",
+                    { "Ref": "DBTBucket" },
+                    " ./dbt_project\n",
+                    "sudo aws s3 sync s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublickBucketDBTProjectFolder" },
+                    " ./dbt_project_local \n",
+                    "sudo sed -i \"s/<REDSHIFT_ENDPOINT>/$redshift_host/g\" ./dbt_project_local/.dbt/profiles.yml\n",
+                    "sudo aws s3 cp ./dbt_project_local s3://",
+                    { "Ref": "DBTBucket" },
+                    "/dbt_project/ --recursive \n",
+                    "echo mount-s3 service ready for dbt_project folder\n",
+                    "sudo aws s3 cp s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublickBucketAirflowDags" },
+                    "/ ./airflow_dags/ --recursive \n",
+                    "sudo aws s3 cp ./airflow_dags s3://",
+                    { "Ref": "DagsBucket" },
+                    "/dags --recursive \n",
+                    "mkdir -p /opt/airflow\n",
+                    "cd /opt/airflow\n",
+                    "sudo aws s3 sync s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublickBucketAirflowFolder" },
+                    " . \n",
+                    "mkdir -p ./dags ./logs ./plugins\n",
+                    "sudo chmod 777 -R ./logs \n",
+                    "sudo chmod 777 -R ./dags \n",
+                    "sudo mount-s3 --dir-mode 0766 --file-mode 0766 --allow-overwrite --allow-delete --allow-other --prefix dags/ ",
+                    { "Ref": "DagsBucket" },
+                    " ./dags",
+                    "\n",
+                    "echo mount-s3 service ready for dags folder\n",
+                    "sudo yum install -y docker\n",
+                    "sudo service docker start\n",
+                    "sudo usermod -a -G docker ec2-user\n",
+                    "mkdir -p /usr/local/lib/docker/cli-plugins\n",
+                    "curl -SL https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose\n",
+                    "chmod +x /usr/local/lib/docker/cli-plugins/docker-compose\n",
+                    "echo docker compose has been installed\n",
+                    "sudo chmod 666 /var/run/docker.sock\n",
+                    "echo Airflow folders created\n",
+                    "echo -e \"AIRFLOW_UID=$(id -u)\\nAIRFLOW_GID=0\" > .env\n",
+                    "echo -e \"AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL=5\\nAIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL=30\" >> .env\n",
+                    "echo -e \"PYTHONDONTWRITEBYTECODE=''\\nPYTHONPATH=/opt/airflow/dags:${PYTHONPATH}\" >> .env\n",
+                    "sudo docker compose up -d airflow-init\n",
+                    "sudo docker compose up -d\n",
+                    "echo Airflow service is running\n",
+                    "echo ------ Configuring Superset ----- \n",
+                    "sudo aws s3 cp s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublicBucketSupersetServiceKey" },
+                    " /etc/systemd/system/docker_superset_service.service\n",
+                    "cd / \n",
+                    "git clone https://github.com/apache/superset.git\n",
+                    "cd superset\n",
+                    "echo \"sqlalchemy-redshift\" >> ./docker/requirements-local.txt\n",
+                    "sudo chmod 644 /etc/systemd/system/docker_superset_service.service\n",
+                    "sudo systemctl daemon-reload\n",
+                    "sudo systemctl enable docker_superset_service.service\n",
+                    "sudo systemctl start docker_superset_service.service\n",
+                    "echo Superset service is running\n",
+                  ],
+                ],
+            },
+        }
+  DataArchitectureInstanceEIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      InstanceId: !Ref DataArchitectureInstance
+
+  VsCodeInstance:
+    DependsOn:
+      - VSCodeEC2InstanceProfile
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref VSCodeInstanceType
+      KeyName: !Ref EC2KeyPair # KeyName
+      IamInstanceProfile: !Ref VSCodeEC2InstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !Ref EC2SecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-vscode-instance"
+      UserData:
+        {
+          "Fn::Base64":
+            {
+              "Fn::Join":
+                [
+                  "",
+                  [
+                    "#!/bin/bash\n",
+                    "set -ex\n",
+                    "sudo aws s3 cp s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublicBucketVSCodeServiceKey" },
+                    " /etc/systemd/system/docker_vscode_service.service\n",
+                    "sudo aws s3 cp s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublicBucketAPIServiceKey" },
+                    " /etc/systemd/system/docker_api_service.service\n",
+                    "export VSCODE_DOCKER_REPO=",
+                    { "Ref": "PublicVsCodeDockerRepo" },
+                    "\n",
+                    "echo $VSCODE_DOCKER_REPO\n",
+                    "sudo sed -i 's|<VSCODE_DOCKER_REPO>|'\"$VSCODE_DOCKER_REPO\"'|g' /etc/systemd/system/docker_vscode_service.service \n",
+                    "sudo mkdir /home/ec2-user/data\n",
+                    "sudo aws s3 sync s3://",
+                    { "Ref": "PublicBucketName" },
+                    "/",
+                    { "Ref": "PublicBucketLabContentKey" },
+                    " /home/ec2-user/data\n",
+                    "sudo chown -R 1000:1000 /home/ec2-user/data\n",
+                    "sudo chmod -R 775 /home/ec2-user/data\n",
+                    "export PRODUCER_DOCKER_REPO=",
+                    { "Ref": "ProducerDockerRepo" },
+                    "\n",
+                    "echo $PRODUCER_DOCKER_REPO\n",
+                    "sudo sed -i 's|<PRODUCER_DOCKER_REPO>|'\"$PRODUCER_DOCKER_REPO\"'|g' /etc/systemd/system/docker_api_service.service \n",
+                    "sudo yum update -y\n",
+                    "sudo yum install docker -y\n",
+                    "sudo service docker start\n",
+                    "sudo usermod -a -G docker ec2-user\n",
+                    "sudo mkdir -p /usr/local/lib/docker/cli-plugins\n",
+                    "sudo curl -SL https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose\n",
+                    "sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose\n",
+                    "echo docker compose has been installed\n",
+                    "sudo chmod 644 /etc/systemd/system/docker_vscode_service.service\n",
+                    "sudo systemctl daemon-reload\n",
+                    "sudo systemctl enable docker_vscode_service.service\n",
+                    "sudo systemctl start docker_vscode_service.service\n",
+                    "sudo docker pull $PRODUCER_DOCKER_REPO\n",
+                    "echo 'Pulled Inference image from' $PRODUCER_DOCKER_REPO\n",
+                    "sudo chmod 644 /etc/systemd/system/docker_api_service.service\n",
+                    "sudo systemctl daemon-reload\n",
+                    "sudo systemctl enable docker_api_service.service\n",
+                    "sudo systemctl start docker_api_service.service\n",
+                    "echo Producer ready!\n",
+                  ],
+                ],
+            },
+        }
+
+  VsCodeInstanceEIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      InstanceId: !Ref VsCodeInstance
+
+  LambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleArchitectures:
+        - arm64
+      CompatibleRuntimes:
+        - python3.12
+      Content:
+        S3Bucket: !Ref PublicBucketName
+        S3Key: !Ref PublicBucketLayerKey
+      Description: Lambda layer to setup Vscode instance profile
+      LayerName: !Sub ${ProjectPrefix}-lambda-layer
+
+  LambdaRoleVSCodeSetup:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectPrefix}-lambda-role-vscode-setup"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      Policies:
+        - PolicyName: VSCodeInstanceRolePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CreateLogGroup
+                Effect: Allow
+                Action: logs:CreateLogGroup
+                Resource: "arn:aws:logs:*:*:*"
+              - Sid: LogStreamMgmt
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:log-group:/aws/lambda/${ProjectPrefix}*:*"
+              - Sid: IAMRoleMgmt
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:TagRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                Resource: !Sub "arn:aws:iam::*:role/${VSCodeRoleName}"
+
+  LambdaFunctionVSCodeRole:
+    DependsOn:
+      - LambdaLayer
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment:
+        Variables:
+          PROJECT_VALUE: !Ref ProjectPrefix
+          CLONE_ROLE_NAME: !Ref VSCodeRoleName
+          BUCKET_NAME: !Ref PublicBucketName
+          POLICY_PATH: !Ref PublicBucketPolicyPath
+      Code:
+        S3Bucket: !Ref PublicBucketName
+        S3Key: !Ref PublicBucketLambdaKey
+      FunctionName: !Sub "${ProjectPrefix}-lambda-function-lab-setup"
+      Handler: policy_clone.lambda_handler
+      Layers:
+        - !Ref LambdaLayer
+      Runtime: !Ref Runtime
+      Role: !GetAtt LambdaRoleVSCodeSetup.Arn
+      Timeout: !Ref Timeout
+
+  CRVSCodeRoleWithLambda:
+    DependsOn:
+      - LambdaFunctionVSCodeRole
+    Type: Custom::CRVSCodeRoleWithLambda
+    Properties:
+      ServiceToken: !GetAtt LambdaFunctionVSCodeRole.Arn
+    DeletionPolicy: Delete
+
+  VSCodeEC2InstanceProfile:
+    DependsOn:
+      - CRVSCodeRoleWithLambda
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      InstanceProfileName: VSCodeEC2InstanceProfile
+      Roles:
+        - !Ref VSCodeRoleName
+  DagsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectPrefix}-${AWS::AccountId}-${AWS::Region}-dags
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  DBTBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectPrefix}-${AWS::AccountId}-${AWS::Region}-dbt
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  LambdaRestartVSCodeExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: "LambdaExecutionPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "logs:CreateLogGroup"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectPrefix}-restart-vscode:*"
+              - Effect: "Allow"
+                Action:
+                  - "ssm:SendCommand"
+                Resource:
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+                  - !Sub "arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript"
+              - Effect: "Allow"
+                Action:
+                  - "ec2:DescribeInstances"
+                Resource: "*"
+
+  RestartVscodeLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub ${ProjectPrefix}-restart-vscode
+      Handler: "index.lambda_handler"
+      Role: !GetAtt LambdaRestartVSCodeExecutionRole.Arn
+      Environment:
+        Variables:
+          REGION: !Ref "AWS::Region"
+      Code:
+        ZipFile: |
+          import boto3
+          import logging
+          import json
+          import os
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          REGION = os.getenv("REGION", "us-east-1")
+
+          def lambda_handler(event, context):
+              logger.info(REGION)
+              ec2_client = boto3.client("ec2", region_name=REGION)
+
+              filtered_instances = ec2_client.describe_instances(Filters=[{'Name': 'tag:Name', 'Values': ['de-c4w4a2-vscode-instance']}])
+
+              reservations = filtered_instances
+
+              instance_id=reservations['Reservations'][0]['Instances'][0]['InstanceId']
+              logger.info(instance_id)
+
+              ssm_client = boto3.client('ssm')
+
+              response = ssm_client.send_command(
+                  InstanceIds=[instance_id],
+                  DocumentName='AWS-RunShellScript',
+                  Parameters={'commands': ['sudo bash /restart_vscode.sh']}
+              )
+
+              logger.info(response)
+
+              return {'response': json.dumps(response, default=str)}
+      Runtime: !Ref Runtime
+      Timeout: 30
+      MemorySize: 128
+
+Outputs:
+  PostgresJDBCConnectionString:
+    Description: JDBC connection string for Postgres database
+    Value: !Join
+      - ""
+      - - "jdbc:mysql://"
+        - !GetAtt
+          - PostgresDB
+          - Endpoint.Address
+        - ":"
+        - !GetAtt
+          - PostgresDB
+          - Endpoint.Port
+  PostgresEndpoint:
+    Description: RDS endpoint for Postgres DB instance
+    Value: !GetAtt PostgresDB.Endpoint.Address
+  RedshiftClusterEndpoint:
+    Description: Redshift Cluster endpoint
+    Value: !Sub "${RedshiftCluster.Endpoint.Address}"
+  RedshiftClusterName:
+    Description: Name of Redshift cluster
+    Value:
+      Ref: RedshiftCluster
+  DagsBucket:
+    Description: This is the S3 bucket for storing Apache Airflow Dags
+    Value: !Ref DagsBucket
+  DBTBucket:
+    Description: This is the S3 bucket for storing Apache Airflow Dags
+    Value: !Ref DBTBucket
+  AirflowDNS:
+    Description: This is the DNS of the Airflow service
+    Value:
+      !Join [
+        ":",
+        [!GetAtt DataArchitectureInstance.PublicDnsName, !Ref AirflowPort],
+      ]
+  APIEndpoint:
+    Description: This is the Endpoint of the API service
+    Value: !Join [":", [!Ref VsCodeInstanceEIP, !Ref APIPort]]
+  SupersetEndpoint:
+    Description: This is the Endpoint of the Superset service
+    Value: !Join
+      - ""
+      - - "http://"
+        - !Ref DataArchitectureInstanceEIP
+        - ":"
+        - !Ref SupersetPort
+  VSCodeEndpoint:
+    Description: This is the Endpoint of the Vs Code service
+    Value: !Join
+      - ""
+      - - "http://"
+        - !Ref VsCodeInstanceEIP
+        - ":"
+        - !Ref VsCodePort
