@@ -40,7 +40,6 @@ def fetch_data_from_api(api_url: str):
         response.raise_for_status()
 
 
-# Replace with your API URLs
 api_url = args["api_url"]
 request_start_date = args["api_start_date"]
 request_end_date = args["api_end_date"]
